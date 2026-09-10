@@ -143,6 +143,11 @@ public class ScraperProvider extends ContentProvider {
     private static final int MOVIE_COLLECTION_BACKDROP_THUMB_URL = SCRAPER_PROVIDER_OFFSET + 159;
     private static final int MOVIE_COLLECTION_BACKDROP_THUMB_FILE = SCRAPER_PROVIDER_OFFSET + 160;
 
+    private static final int USER_COLLECTION = SCRAPER_PROVIDER_OFFSET + 170;
+    private static final int USER_COLLECTION_ID = SCRAPER_PROVIDER_OFFSET + 171;
+    private static final int USER_COLLECTION_ITEM = SCRAPER_PROVIDER_OFFSET + 172;
+    private static final int USER_COLLECTION_ITEM_BY_COLLECTION = SCRAPER_PROVIDER_OFFSET + 173;
+
     private static final int WRITER = SCRAPER_PROVIDER_OFFSET + 161;
     private static final int WRITER_ID = SCRAPER_PROVIDER_OFFSET + 162;
     private static final int WRITER_ALL = SCRAPER_PROVIDER_OFFSET + 163;
@@ -342,6 +347,16 @@ public class ScraperProvider extends ContentProvider {
                 MOVIE_COLLECTION);
         sUriMatcher.addURI(ScraperStore.AUTHORITY, getPath(ScraperStore.MovieCollections.URI.BY_COLLECTION_ID) + "/#",
                 MOVIE_COLLECTION_ID);
+
+        // User-created collections and their mixed movie/TV-show membership links.
+        sUriMatcher.addURI(ScraperStore.AUTHORITY, getPath(ScraperStore.UserCollections.URI.BASE),
+                USER_COLLECTION);
+        sUriMatcher.addURI(ScraperStore.AUTHORITY, getPath(ScraperStore.UserCollections.URI.ID) + "#",
+                USER_COLLECTION_ID);
+        sUriMatcher.addURI(ScraperStore.AUTHORITY, getPath(ScraperStore.UserCollectionItems.URI.BASE),
+                USER_COLLECTION_ITEM);
+        sUriMatcher.addURI(ScraperStore.AUTHORITY, getPath(ScraperStore.UserCollectionItems.URI.BY_COLLECTION_ID) + "#",
+                USER_COLLECTION_ITEM_BY_COLLECTION);
     }
 
     // Uris that need to be notified when inserting a Show or Episode
@@ -401,6 +416,16 @@ public class ScraperProvider extends ContentProvider {
                     whereClause = ScraperStore.Episode.ID + "=?";
                     whereArgs = new String[] {data};
                     return db.delete(ScraperTables.EPISODE_TABLE_NAME, whereClause, whereArgs);
+                case USER_COLLECTION:
+                    return db.delete(ScraperTables.USER_COLLECTIONS_TABLE_NAME, selection, selectionArgs);
+                case USER_COLLECTION_ID:
+                    return db.delete(ScraperTables.USER_COLLECTIONS_TABLE_NAME,
+                            ScraperStore.UserCollections.ID + "=?", new String[] {data});
+                case USER_COLLECTION_ITEM:
+                    return db.delete(ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME, selection, selectionArgs);
+                case USER_COLLECTION_ITEM_BY_COLLECTION:
+                    return db.delete(ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME,
+                            ScraperStore.UserCollectionItems.COLLECTION_ID + "=?", new String[] {data});
                 default:
                     throw new IllegalArgumentException("Unknown URI " + uri);
             }
@@ -749,6 +774,19 @@ public class ScraperProvider extends ContentProvider {
                 }
                 noteUri = createUriAndNotify(rowId, db, ScraperStore.MovieCollections.URI.BASE, cr);
                 break;
+            case USER_COLLECTION:
+                rowId = db.insertOrThrow(ScraperTables.USER_COLLECTIONS_TABLE_NAME,
+                        ScraperStore.UserCollections.NAME, values);
+                noteUri = createUriAndNotify(rowId, db, ScraperStore.UserCollections.URI.BASE, cr);
+                break;
+            case USER_COLLECTION_ITEM:
+                rowId = db.insertWithOnConflict(ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME,
+                        ScraperStore.UserCollectionItems.ID, values, SQLiteDatabase.CONFLICT_IGNORE);
+                if (rowId < 0) {
+                    throw new SQLiteConstraintException("This title is already in the collection");
+                }
+                noteUri = createUriAndNotify(rowId, db, ScraperStore.UserCollectionItems.URI.BASE, cr);
+                break;
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
         }
@@ -1085,6 +1123,22 @@ public class ScraperProvider extends ContentProvider {
             case MOVIE_COLLECTION:
                 qb.setTables(ScraperTables.MOVIE_COLLECTION_TABLE_NAME);
                 break;
+            case USER_COLLECTION:
+                qb.setTables(ScraperTables.USER_COLLECTIONS_TABLE_NAME);
+                break;
+            case USER_COLLECTION_ID:
+                qb.setTables(ScraperTables.USER_COLLECTIONS_TABLE_NAME);
+                qb.appendWhere(ScraperStore.UserCollections.ID + " = ");
+                qb.appendWhereEscapeString(data);
+                break;
+            case USER_COLLECTION_ITEM:
+                qb.setTables(ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME);
+                break;
+            case USER_COLLECTION_ITEM_BY_COLLECTION:
+                qb.setTables(ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME);
+                qb.appendWhere(ScraperStore.UserCollectionItems.COLLECTION_ID + " = ");
+                qb.appendWhereEscapeString(data);
+                break;
 
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
@@ -1278,6 +1332,21 @@ public class ScraperProvider extends ContentProvider {
                 //$FALL-THROUGH$
             case MOVIE_COLLECTION:
                 table = ScraperTables.MOVIE_COLLECTION_TABLE_NAME;
+                break;
+            case USER_COLLECTION_ID:
+                selection = ScraperStore.UserCollections.ID + "=?";
+                selectionArgs = new String[] { FileUtils.getName(uri) };
+                //$FALL-THROUGH$
+            case USER_COLLECTION:
+                table = ScraperTables.USER_COLLECTIONS_TABLE_NAME;
+                break;
+            case USER_COLLECTION_ITEM:
+                table = ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME;
+                break;
+            case USER_COLLECTION_ITEM_BY_COLLECTION:
+                selection = ScraperStore.UserCollectionItems.COLLECTION_ID + "=?";
+                selectionArgs = new String[] { FileUtils.getName(uri) };
+                table = ScraperTables.USER_COLLECTION_ITEMS_TABLE_NAME;
                 break;
 
             default:

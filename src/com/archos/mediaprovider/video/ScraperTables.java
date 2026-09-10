@@ -1194,6 +1194,8 @@ public final class ScraperTables {
             "DROP TRIGGER IF EXISTS " + SHOW_BACKDROPS_TABLE_NAME + "_delete";
 
     public static final String MOVIE_COLLECTION_TABLE_NAME = "movie_collection";
+    public static final String USER_COLLECTIONS_TABLE_NAME = "user_collection";
+    public static final String USER_COLLECTION_ITEMS_TABLE_NAME = "user_collection_item";
     private static final String CREATE_MOVIE_COLLECTION_TABLE =
             "CREATE TABLE " + MOVIE_COLLECTION_TABLE_NAME + " ( \n" +
                     ScraperStore.MovieCollections.ID + " INTEGER PRIMARY KEY NOT NULL,\n" +
@@ -1220,6 +1222,24 @@ public final class ScraperTables {
                     "INSERT INTO delete_files(name) SELECT OLD." + ScraperStore.MovieCollections.BACKDROP_THUMB_FILE +
                     " WHERE OLD." + ScraperStore.MovieCollections.BACKDROP_THUMB_FILE + " IS NOT NULL;" +
                     "END";
+
+    private static final String CREATE_USER_COLLECTIONS_TABLE =
+            "CREATE TABLE " + USER_COLLECTIONS_TABLE_NAME + " (" +
+                    ScraperStore.UserCollections.ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    ScraperStore.UserCollections.NAME + " TEXT NOT NULL COLLATE NOCASE UNIQUE, " +
+                    ScraperStore.UserCollections.SORT_NAME + " TEXT NOT NULL DEFAULT '', " +
+                    ScraperStore.UserCollections.POSITION + " INTEGER NOT NULL DEFAULT 0, " +
+                    ScraperStore.UserCollections.HIDDEN + " INTEGER NOT NULL DEFAULT 0)";
+    private static final String CREATE_USER_COLLECTION_ITEMS_TABLE =
+            "CREATE TABLE " + USER_COLLECTION_ITEMS_TABLE_NAME + " (" +
+                    ScraperStore.UserCollectionItems.ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    ScraperStore.UserCollectionItems.COLLECTION_ID + " INTEGER NOT NULL REFERENCES " +
+                    USER_COLLECTIONS_TABLE_NAME + "(" + ScraperStore.UserCollections.ID + ") ON DELETE CASCADE, " +
+                    ScraperStore.UserCollectionItems.MEDIA_TYPE + " INTEGER NOT NULL, " +
+                    ScraperStore.UserCollectionItems.MEDIA_ID + " INTEGER NOT NULL, " +
+                    "UNIQUE(" + ScraperStore.UserCollectionItems.COLLECTION_ID + ", " +
+                    ScraperStore.UserCollectionItems.MEDIA_TYPE + ", " +
+                    ScraperStore.UserCollectionItems.MEDIA_ID + "))";
 
     public static void create(SQLiteDatabase db) {
         db.execSQL(MOVIE_TABLE_CREATE);
@@ -1303,6 +1323,7 @@ public final class ScraperTables {
 
         // V28
         db.execSQL(CREATE_MOVIE_TRAILERS_TABLE);
+
     }
 
     public static void upgradeTo(SQLiteDatabase db, int toVersion) {
@@ -1565,6 +1586,13 @@ public final class ScraperTables {
                     ScraperStore.MovieCollections.ID + " > 0 AND NOT EXISTS (SELECT 1 FROM " +
                     MOVIE_TABLE_NAME + " WHERE " + ScraperStore.Movie.COLLECTION_ID + " = " +
                     MOVIE_COLLECTION_TABLE_NAME + "." + ScraperStore.MovieCollections.ID + ")");
+        }
+        if (toVersion == 62) {
+            if (log.isDebugEnabled()) log.debug("upgradeTo: {} - adding user collections", toVersion);
+            db.execSQL(CREATE_USER_COLLECTIONS_TABLE);
+            db.execSQL(CREATE_USER_COLLECTION_ITEMS_TABLE);
+            db.execSQL("CREATE INDEX idx_user_collection_item_collection ON " +
+                    USER_COLLECTION_ITEMS_TABLE_NAME + "(" + ScraperStore.UserCollectionItems.COLLECTION_ID + ")");
         }
     }
 

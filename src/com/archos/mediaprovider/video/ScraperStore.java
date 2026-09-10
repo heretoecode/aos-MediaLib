@@ -458,4 +458,37 @@ public final class ScraperStore {
         }
     }
 
+    /**
+     * User-created collections are deliberately separate from TMDb movie collections.  A custom
+     * collection can contain both a movie and a TV show, and never changes scraper metadata.
+     */
+    public static class UserCollections {
+        public static final String ID = "_id";
+        public static final String NAME = "name";
+        public static final String SORT_NAME = "sort_name";
+        public static final String POSITION = "position";
+        public static final String HIDDEN = "hidden";
+
+        public static class URI {
+            public static final Uri BASE = Uri.parse(CONTENT_AUTHORITY + "/tags/usercollections");
+            public static final Uri ID = Uri.parse(CONTENT_AUTHORITY + "/tags/usercollections/");
+        }
+    }
+
+    /** Membership links for {@link UserCollections}.  MEDIA_ID is a scraper movie/show id. */
+    public static class UserCollectionItems {
+        public static final String ID = "_id";
+        public static final String COLLECTION_ID = "collection_id";
+        public static final String MEDIA_TYPE = "media_type";
+        public static final String MEDIA_ID = "media_id";
+
+        public static final int MEDIA_TYPE_MOVIE = 1;
+        public static final int MEDIA_TYPE_SHOW = 2;
+
+        public static class URI {
+            public static final Uri BASE = Uri.parse(CONTENT_AUTHORITY + "/tags/usercollectionitems");
+            public static final Uri BY_COLLECTION_ID = Uri.parse(CONTENT_AUTHORITY + "/tags/usercollectionitems/bycollection/");
+        }
+    }
+
 }
