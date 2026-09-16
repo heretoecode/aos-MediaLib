@@ -134,6 +134,8 @@ public class NetworkScannerServiceVideo extends Service implements Handler.Callb
     private static volatile int sRemainingDeletes = 0;
     private static volatile boolean sIsDeleting = false;
     private Thread mScanThread;
+    private final java.util.concurrent.ExecutorService mScanExecutor=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.Set<String> mFollowUpScans=ConcurrentHashMap.newKeySet();
     private Thread mRemoveFilesThread;
 
     public static int getFilesFoundCount() {
@@ -290,6 +292,7 @@ public class NetworkScannerServiceVideo extends Service implements Handler.Callb
         if (log.isDebugEnabled()) log.debug("onDestroy");
         cleanup();
         // Additional cleanup if necessary
+        mScanExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -327,6 +330,7 @@ public class NetworkScannerServiceVideo extends Service implements Handler.Callb
                 m.setData(scanData);
                 mHandler.sendMessage(m);
             } else {
+                mFollowUpScans.add(key);
                 // This URI is already queued, so this request will not run its own doScan().
                 // Release its batch membership here, otherwise the batch counter would never
                 // reach zero and post-scan scraping would never start. Standalone requests
@@ -373,6 +377,7 @@ public class NetworkScannerServiceVideo extends Service implements Handler.Callb
                     int remainingScans = com.archos.mediascraper.AutoScrapeService.getNetworkScanCount();
                     if (log.isDebugEnabled()) log.debug("handleMessage: MESSAGE_KILL, remainingScans={}, isForeground={}", remainingScans, isForeground);
 
+                    if (!mScanRequests.isEmpty()) break;
                     if (remainingScans == 0) {
                         sIsScannerAlive = false;
                         notifyListeners();
@@ -393,18 +398,23 @@ public class NetworkScannerServiceVideo extends Service implements Handler.Callb
                         com.archos.mediascraper.AutoScrapeService.STANDALONE_SCAN_BATCH_ID);
                 if (isForeground || pendingScans > 0) {
                     if (log.isDebugEnabled()) log.debug("handleMessage: processing scan (isForeground={}, pendingScans={})", isForeground, pendingScans);
-                    mScanThread = new Thread(() -> {
-                        doScan(uri, scanBatchId);
-                        // *** Send MESSAGE_KILL after doScan() completes ***
-                        if (isHandlerThreadAlive()) {
-                            mHandler.post(() -> mHandler.obtainMessage(MESSAGE_KILL, msg.arg1, msg.arg2).sendToTarget());
+                    mScanExecutor.execute(() -> {
+                        mScanThread=Thread.currentThread();
+                        try {
+                            doScan(uri,scanBatchId);
+                            // A burst schedules at most one follow-up, never overlapping the active scan.
+                            if(mFollowUpScans.remove(key)&&!Thread.currentThread().isInterrupted())
+                                doScan(uri,com.archos.mediascraper.AutoScrapeService.STANDALONE_SCAN_BATCH_ID);
+                        } finally {
+                            mFollowUpScans.remove(key);mScanRequests.remove(key);mScanThread=null;
+                            if(isHandlerThreadAlive())mHandler.post(()->mHandler.obtainMessage(MESSAGE_KILL,msg.arg1,msg.arg2).sendToTarget());
                         }
                     });
-                    mScanThread.start();
                 } else {
-                    if (log.isDebugEnabled()) log.debug("handleMessage: skipping scan, app in background and no pending scans");
+                    mScanRequests.remove(key);mFollowUpScans.remove(key);
+                    com.archos.mediascraper.AutoScrapeService.handleNetworkScanCompletion(this,
+                        com.archos.mediascraper.AutoScrapeService.completeNetworkScan(scanBatchId,false,false));
                 }
-                mScanRequests.remove(key);
                 break;
             case MESSAGE_DO_UNSCAN:
                 uri = (Uri) msg.obj;
