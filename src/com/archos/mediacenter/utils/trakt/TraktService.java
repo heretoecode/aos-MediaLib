@@ -54,7 +54,7 @@ import com.uwetrottmann.trakt5.entities.BaseShow;
 import com.uwetrottmann.trakt5.entities.EpisodeIds;
 import com.uwetrottmann.trakt5.entities.GenericProgress;
 import com.uwetrottmann.trakt5.entities.HistoryEntry;
-import com.uwetrottmann.trakt5.entities.LastActivities;
+import com.uwetrottmann.trakt5.entities.LastActivities2;
 import com.uwetrottmann.trakt5.entities.ListEntry;
 import com.uwetrottmann.trakt5.entities.MovieIds;
 import com.uwetrottmann.trakt5.entities.PlaybackResponse;
@@ -1573,7 +1573,7 @@ public class TraktService extends Service implements DefaultLifecycleObserver {
         if (log.isDebugEnabled()) log.debug("getFlagsFromTraktLastActivity: getLastActivity input is flag={}, movieTime={}, showTime={}", flag, movieTime, showTime);
         if (result != null && result.status == Trakt.Status.SUCCESS &&
                 result.objType == Trakt.Result.ObjectType.LAST_ACTIVITY) {
-            LastActivities lastActivity = (LastActivities) result.obj;
+            LastActivities2 lastActivity = (LastActivities2) result.obj;
             if (log.isDebugEnabled()) log.debug("lastActivity: movie: {} vs {}", lastActivity.movies.watched_at.toEpochSecond(), movieTime);
             if (lastActivity.movies.watched_at.toEpochSecond()> movieTime) { // new fully watched videos more recent than last sync movies
                 if (log.isDebugEnabled()) log.debug("getFlagsFromTraktLastActivity: new activity watched on movies on trakt side detected");
@@ -1844,7 +1844,7 @@ public class TraktService extends Service implements DefaultLifecycleObserver {
             int syncStatusCol = cursor.getColumnIndex(VideoStore.List.Columns.SYNC_STATUS);
             int idCol = cursor.getColumnIndex(VideoStore.List.Columns.ID);
             while(cursor.moveToNext()){
-                localLists.add(new VideoStore.List.ListObj(cursor.getInt(idCol), cursor.getString(titleCol), cursor.getInt(traktIdCol), cursor.getInt(syncStatusCol)));
+                localLists.add(new VideoStore.List.ListObj(cursor.getInt(idCol), cursor.getString(titleCol), cursor.getLong(traktIdCol), cursor.getInt(syncStatusCol)));
             }
         }
         cursor.close();
@@ -1941,7 +1941,7 @@ public class TraktService extends Service implements DefaultLifecycleObserver {
             int listIdCol = cursor.getColumnIndex(VideoStore.List.Columns.ID);
             int syncStatusCol = cursor.getColumnIndex(VideoStore.List.Columns.SYNC_STATUS);
             while(cursor.moveToNext()){
-                int traktId = cursor.getInt(traktIdCol);
+                long traktId = cursor.getLong(traktIdCol);
                 int localId = cursor.getInt(listIdCol);
                 if(traktId>0){
                     Uri listUri = VideoStore.List.getListUri(localId);

@@ -36,6 +36,7 @@ import android.text.TextUtils;
 
 import com.archos.filecorelibrary.ExtStorageManager;
 import com.archos.filecorelibrary.FileEditor;
+import com.archos.filecorelibrary.samba.SambaDiscovery;
 import com.archos.mediacenter.filecoreextension.upnp2.FileEditorFactoryWithUpnp;
 import com.archos.mediacenter.utils.trakt.TraktService;
 import com.archos.medialib.IMediaMetadataRetriever;
@@ -921,7 +922,7 @@ public class VideoStoreImportImpl {
     private void handleScanCursor(Cursor c, ContentResolver cr, Context context, Blacklist blacklist) {
         // for some reasons doScan passes a a cursor with size > WINDOW_SIZE
         // thus only process WINDOW_SIZE entries
-        int remaining = c.getCount();
+        int remaining = c != null ? c.getCount() : 0;
         if (c == null || remaining == 0) {
             if (c != null) c.close();
             if (log.isDebugEnabled()) log.debug("handleScanCursor: no media to scan");
@@ -957,10 +958,12 @@ public class VideoStoreImportImpl {
                     //we silently ignore empty lines - it means content has been deleted while scanning
                     continue;
                 }
-                if (context instanceof VideoStoreImportService) {
+                Job job = new Job(path, id, blacklist);
+                // MediaStore.Files also contains images and other non-video rows. Classify
+                // and mark them scanned, but only show progress for video metadata retrieval.
+                if (job.mRetrieve && context instanceof VideoStoreImportService) {
                     ((VideoStoreImportService) context).updateScanNotification(remaining, path);
                 }
-                Job job = new Job(path, id, blacklist);
                 if (log.isDebugEnabled()) log.debug("handleScanCursor: scanning {}", job.mPath);
                 // update property with current file
                 ContentValues cv = null;
@@ -1178,10 +1181,19 @@ public class VideoStoreImportImpl {
 
     /** get MediaMetadata object or null for a path */
     private MediaMetadata getMetadata(String path) throws RemoteException, InterruptedException, MediaRetrieverServiceClient.ServiceManagementException {
+        String shareName = null;
+        String shareIp = null;
         if(path.startsWith("file://")) {
             path = path.substring("file://".length()); //we need to remove "file://"
+        } else if (path.startsWith("smb://")) {
+            // MediaRetrieverService runs in the :scanner process, which does not run Samba
+            // discovery anymore. Pass the mapping separately: the service registers it in its
+            // own resolver, while the original share-name URI keeps matching its credentials.
+            Uri uri = Uri.parse(path);
+            shareName = uri.getHost();
+            shareIp = SambaDiscovery.getIpFromShareName(shareName);
         }
-        return mMediaRetrieverServiceClient.getMetadata(path);
+        return mMediaRetrieverServiceClient.getMetadata(path, shareName, shareIp);
     }
 
     /** creates ContentValues via MediaRetrieverService, can't be null */
