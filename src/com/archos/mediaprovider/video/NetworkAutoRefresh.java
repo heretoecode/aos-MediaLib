@@ -151,7 +151,7 @@ public class NetworkAutoRefresh extends BroadcastReceiver implements DefaultLife
             // can never be left without a scheduled request (which would strand the batch).
             List<Uri> eligible = new ArrayList<>();
             for (Uri uri : toUpdate) {
-                if (shouldSkipScanForInactiveServer(context, uri)) {
+                if (!ACTION_FORCE_RESCAN_INDEXED_FOLDERS.equals(intent.getAction()) && shouldSkipScanForInactiveServer(context, uri)) {
                     if (log.isDebugEnabled()) log.debug("onReceive: skip scan for inactive server {}", uri);
                     continue;
                 }

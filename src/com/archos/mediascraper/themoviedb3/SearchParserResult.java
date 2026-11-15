@@ -95,7 +95,7 @@ public class SearchParserResult {
                 if (maxItems < 0 || results.size() < maxItems)
                     results.add(sr);
         // skip videos without an air date only if resultsProbable is empty
-        if (resultsNoAirDate.size()>0 && resultsProbable.size() == 0)
+        if (resultsNoAirDate.size()>0)
             for (SearchResult sr : resultsNoAirDate)
                 if (maxItems < 0 || results.size() < maxItems)
                     results.add(sr);
@@ -105,7 +105,7 @@ public class SearchParserResult {
                 if (maxItems < 0 || results.size() < maxItems)
                     results.add(sr);
         // skip videos without a poster only if resultsProbable is empty
-        if (resultsNoPoster.size()>0 && resultsProbable.size() == 0)
+        if (resultsNoPoster.size()>0)
             for (SearchResult sr : resultsNoPoster)
                 if (maxItems < 0 || results.size() < maxItems)
                     results.add(sr);

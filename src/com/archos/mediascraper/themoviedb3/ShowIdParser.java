@@ -84,7 +84,7 @@ public class ShowIdParser {
 
         if (serie.external_ids != null) result.setImdbId(serie.external_ids.imdb_id);
         result.setOnlineId(serie.id);
-        if (log.isDebugEnabled()) log.debug("getResult: onlineId={}, imdbId={}", serie.id, serie.external_ids.imdb_id);
+        if (log.isDebugEnabled()) log.debug("getResult: onlineId={}, imdbId={}", serie.id, serie.external_ids == null ? null : serie.external_ids.imdb_id);
         result.setGenres(getLocalizedGenres(serie.genres));
 
         for (Network network : serie.networks)
