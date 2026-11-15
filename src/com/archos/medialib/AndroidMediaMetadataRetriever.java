@@ -21,6 +21,7 @@ import android.net.Uri;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -67,7 +68,13 @@ public class AndroidMediaMetadataRetriever implements IMediaMetadataRetriever {
             mFileProxy = Proxy.setDataSource(Uri.parse(uri), this, headers);
             return;
         }
-        mRetriever.setDataSource(uri, headers);
+        // Android's URL form dereferences the headers map; the streaming proxies pass none (seek previews failed with
+        // "Map.size() on a null object reference" on WebDAV and SMB sources).
+        Map<String, String> safeHeaders = headers;
+        if (safeHeaders == null) {
+            safeHeaders = Collections.emptyMap();
+        }
+        mRetriever.setDataSource(uri, safeHeaders);
     }
 
     @Override
